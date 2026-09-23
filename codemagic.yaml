@@ -1,17 +1,44 @@
 workflows:
-    sample-workflow:
-        name: Codemagic Sample Workflow
-        max_build_duration: 120
-        instance_type: mac_mini_m2
-scripts:
-    # ....
-  - name: Set Android SDK location
-    script: | 
-      echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-  - name: Build Android release
-    script: | 
-      ./gradlew bundleRelease # -> to create the .aab
-      # gradlew assembleRelease # -> to create the .apk
+  android-workflow:
+    name: Android Build, Test & APK Generation Workflow
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        JAVA_VERSION: "17" # Ajusta a tu versión de Java (8, 11, 17, etc.)
+      node: latest
+    scripts:
+      - name: Set Android SDK location
+        script: | 
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
 
-artifacts:
-  - app/build/outputs/**/*.aab
+      # Stage 1: Compilar / Limpiar proyecto
+      - name: Build and Lint check
+        script: | 
+          chmod +x gradlew
+          ./gradlew lintRelease
+          ./gradlew assembleDebug --dry-run
+
+      # Stage 2: Pruebas Unitarias
+      - name: Run Unit Tests
+        script: | 
+          ./gradlew testReleaseUnitTest
+
+      # Stage 3: Generar el APK de Release (y opcionalmente AAB)
+      - name: Build Android Release APK
+        script: | 
+          ./gradlew assembleRelease
+
+    # Guardar los archivos APK (y AAB) generados como artefactos
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+      - app/build/outputs/bundle/**/*.aab
+      - app/build/reports/tests/**
+
+    publishing:
+      email:
+        recipients:
+          - tu_correo@dominio.com
+        notify:
+          success: true
+          failure: true
