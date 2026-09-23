@@ -45,10 +45,10 @@ workflows:
           cd android
           ./gradlew assembleRelease bundleRelease
     artifacts:
-      - android/app/build/outputs/apk/**/*.apk
-      - android/app/build/outputs/bundle/**/*.aab
-      - android/app/build/reports/tests/**
-      - android/app/build/outputs/mapping/**/mapping.txt
+      - "**/build/outputs/apk/**/*.apk"
+      - "**/build/outputs/bundle/**/*.aab"
+      - "**/build/reports/tests/**"
+      - "**/build/outputs/mapping/**/mapping.txt"
     publishing:
       email:
         recipients:
