@@ -26,19 +26,16 @@ workflows:
     scripts:
       - name: Set Android SDK Location
         script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
-
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
       - name: Decode Android Keystore
         script: |
           # Decodifica la firma digital guardada como variable Base64
           echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.jks
-
       - name: Build & Lint check
         script: |
           cd android
           chmod +x gradlew
           ./gradlew lintRelease
-
       - name: Run Unit Tests & Code Coverage
         script: |
           cd android
@@ -48,8 +45,7 @@ workflows:
           emulator-headful -avd emulator &
           adb wait-for-device
           cd android && ./gradlew connectedAndroidTest
-        ignore_failure: true # Permite continuar aunque falle este paso
-
+        ignore_failure: true
       - name: Build Android App Bundle (AAB) & APK
         script: |
           cd android
