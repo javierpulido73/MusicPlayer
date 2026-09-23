@@ -1,35 +1,122 @@
 workflows:
   android-workflow:
-    name: Android Build, Test & APK Generation Workflow
+    name: Advanced Android Build & Release Pipeline
     max_build_duration: 120
     instance_type: mac_mini_m2
+
+    # 1. DISPARADORES AUTOMÁTICOS (Triggers)
+    triggering:
+      events:
+        - push
+        - pull_request
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'release/*'
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+      cancel_previous_builds: true # Cancela builds anteriores si entra un nuevo commit
+
+    # 2. DEFINICIÓN DE ENTORNO Y VARIABLES SEGURAS
     environment:
+      groups:
+        - keystore_credentials # Grupo de variables encriptadas creadas en la UI (p. ej. passwords)
+        - google_play_credentials
       vars:
         JAVA_VERSION: "17"
-      node: latest
+        APP_ENV: "production"
+        PACKAGE_NAME: "com.miempresa.app"
+      node: 20.x
+      npm: latest
+      cocoapods: default # Útil si usas este mismo runner para workflows híbridos
+      groups_overrides: true
+
+    # 3. GESTIÓN DE CACHÉ
+    cache:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - $CM_BUILD_DIR/node_modules
+        - ~/.npm
+
+    # 4. PASOS DE EJECUCIÓN Y SCRIPTS
     scripts:
-      - name: Set Android SDK location
-        script: | 
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-      - name: Build and Lint check
-        script: | 
+      - name: Install Node Dependencies
+        script: |
+          npm ci
+
+      - name: Set Android SDK Location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+
+      - name: Decode Android Keystore
+        script: |
+          # Decodifica la firma digital guardada como variable Base64
+          echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.jks
+
+      - name: Build & Lint check
+        script: |
+          cd android
           chmod +x gradlew
           ./gradlew lintRelease
-          ./gradlew assembleDebug --dry-run
-      - name: Run Unit Tests
-        script: | 
+
+      - name: Run Unit Tests & Code Coverage
+        script: |
+          cd android
           ./gradlew testReleaseUnitTest
-      - name: Build Android Release APK
-        script: | 
-          ./gradlew assembleRelease
-    artifacts: # Guardar los archivos APK (y AAB) generados como artefactos, de esta manera los podemos descargar
-      - app/build/outputs/apk/**/*.apk
-      - app/build/outputs/bundle/**/*.aab
-      - app/build/reports/tests/**
+
+      # Opcional: Pruebas con emulador en vivo
+      - name: Start Android Emulator & Run UI Tests
+        script: |
+          emulator-headful -avd emulator &
+          adb wait-for-device
+          cd android && ./gradlew connectedAndroidTest
+        ignore_failure: true # Permite continuar aunque falle este paso
+
+      - name: Build Android App Bundle (AAB) & APK
+        script: |
+          cd android
+          ./gradlew assembleRelease bundleRelease
+
+      # Integración con Codemagic Patch (OTA Updates para React Native)
+      - name: Publish OTA Update Patch (React Native)
+        script: |
+          npx @codemagic/cli patch publish \
+            --app-id $CODEMAGIC_APP_ID \
+            --token $CODEMAGIC_PATCH_TOKEN \
+            --release-version 1.0.0
+
+    # 5. GUARDADO DE ARTEFACTOS
+    artifacts:
+      - android/app/build/outputs/apk/**/*.apk
+      - android/app/build/outputs/bundle/**/*.aab
+      - android/app/build/reports/tests/**
+      - android/app/build/outputs/mapping/**/mapping.txt # Proguard/R8 Mappings
+
+    # 6. PUBLICACIÓN Y NOTIFICACIONES
     publishing:
       email:
         recipients:
           - javierpulido73@gmail.com
+          - devops-team@empresa.com
         notify:
           success: true
           failure: true
+
+      # Notificación a canales corporativos (Slack / Teams / Discord vía Webhook)
+      slack:
+        channel: '#deployments'
+        notify_on_build_start: true
+        auth_token: $SLACK_AUTH_TOKEN
+
+      # Publicación directa a tiendas (Google Play Console)
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal # internal, alpha, beta, o production
+        submit_as_draft: false
+        changes_not_sent_for_review: false
