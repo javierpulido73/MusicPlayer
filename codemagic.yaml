@@ -5,40 +5,31 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       vars:
-        JAVA_VERSION: "17" # Ajusta a tu versión de Java (8, 11, 17, etc.)
+        JAVA_VERSION: "17"
       node: latest
     scripts:
       - name: Set Android SDK location
         script: | 
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-
-      # Stage 1: Compilar / Limpiar proyecto
       - name: Build and Lint check
         script: | 
           chmod +x gradlew
           ./gradlew lintRelease
           ./gradlew assembleDebug --dry-run
-
-      # Stage 2: Pruebas Unitarias
       - name: Run Unit Tests
         script: | 
           ./gradlew testReleaseUnitTest
-
-      # Stage 3: Generar el APK de Release (y opcionalmente AAB)
       - name: Build Android Release APK
         script: | 
           ./gradlew assembleRelease
-
-    # Guardar los archivos APK (y AAB) generados como artefactos
-    artifacts:
+    artifacts: # Guardar los archivos APK (y AAB) generados como artefactos, de esta manera los podemos descargar
       - app/build/outputs/apk/**/*.apk
       - app/build/outputs/bundle/**/*.aab
       - app/build/reports/tests/**
-
     publishing:
       email:
         recipients:
-          - tu_correo@dominio.com
+          - javierpulido73@gmail.com
         notify:
           success: true
           failure: true
