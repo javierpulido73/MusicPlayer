@@ -13,8 +13,7 @@ workflows:
       cancel_previous_builds: true
     environment:
       groups:
-        - keystore_credentials # Grupo de variables encriptadas creadas en la UI (p. ej. passwords)
-        - google_play_credentials
+        - keystore_credentials
       vars:
         JAVA_VERSION: "17"
         APP_ENV: "production"
@@ -67,8 +66,3 @@ workflows:
         notify:
           success: true
           failure: true
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal # internal, alpha, beta, o production
-        submit_as_draft: false
-        changes_not_sent_for_review: false
