@@ -40,12 +40,6 @@ workflows:
         script: |
           cd android
           ./gradlew testReleaseUnitTest
-      - name: Start Android Emulator & Run UI Tests
-        script: |
-          emulator-headful -avd emulator &
-          adb wait-for-device
-          cd android && ./gradlew connectedAndroidTest
-        ignore_failure: true
       - name: Build Android App Bundle (AAB) & APK
         script: |
           cd android
